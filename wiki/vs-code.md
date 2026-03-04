@@ -327,10 +327,10 @@ Method 2:
 
    - `Windows`: `bash`;
 
-      If you see something else, you're not using `Linux`.
+      If you see something else, you're not using [`VS Code`](#what-is-vs-code) in [`Linux`](./linux.md#what-is-linux).
 
       [Switch to the `Linux` shell for the `VS Code Terminal`](#windows-only-switch-to-the-linux-shell-for-the-vs-code-terminal).
-   - `macOS`, `Linux`: `zsh`, `bash`, or another [shell](./shell.md#shell-variants) name;
+   - `macOS`, `Linux`: [`zsh`](./shell.md#zsh), [`bash`](./shell.md#bash), or another [shell](./shell.md#shell-variants) name;
 
 ### Expand the sidebar with open `VS Code Terminal`s
 
