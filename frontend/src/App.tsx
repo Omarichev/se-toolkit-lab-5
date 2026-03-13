@@ -1,4 +1,5 @@
-import { useState, useEffect, useReducer, FormEvent } from 'react'
+import { useState, useEffect, useReducer, FormEvent, createContext, useContext, ReactNode } from 'react'
+import Dashboard from './Dashboard'
 import './App.css'
 
 const STORAGE_KEY = 'api_key'
@@ -32,11 +33,100 @@ function fetchReducer(_state: FetchState, action: FetchAction): FetchState {
   }
 }
 
-function App() {
-  const [token, setToken] = useState(
-    () => localStorage.getItem(STORAGE_KEY) ?? '',
-  )
+type Page = 'items' | 'dashboard'
+
+interface AuthContextType {
+  token: string
+  setToken: (token: string) => void
+  handleDisconnect: () => void
+  currentPage: Page
+  setCurrentPage: (page: Page) => void
+}
+
+const AuthContext = createContext<AuthContextType | null>(null)
+
+function useAuth() {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider')
+  }
+  return context
+}
+
+function AuthProvider({ children }: { children: ReactNode }) {
+  const [token, setTokenState] = useState(() => localStorage.getItem(STORAGE_KEY) ?? '')
   const [draft, setDraft] = useState('')
+  const [currentPage, setCurrentPage] = useState<Page>('items')
+
+  function setToken(token: string) {
+    setTokenState(token)
+  }
+
+  function handleDisconnect() {
+    localStorage.removeItem(STORAGE_KEY)
+    setTokenState('')
+    setDraft('')
+    setCurrentPage('items')
+  }
+
+  function handleConnect(e: FormEvent) {
+    e.preventDefault()
+    const trimmed = draft.trim()
+    if (!trimmed) return
+    localStorage.setItem(STORAGE_KEY, trimmed)
+    setToken(trimmed)
+  }
+
+  if (!token) {
+    return (
+      <form className="token-form" onSubmit={handleConnect}>
+        <h1>API Key</h1>
+        <p>Enter your API key to connect.</p>
+        <input
+          type="password"
+          placeholder="Token"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <button type="submit">Connect</button>
+      </form>
+    )
+  }
+
+  return (
+    <AuthContext.Provider value={{ token, setToken, handleDisconnect, currentPage, setCurrentPage }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+function AppHeader() {
+  const { handleDisconnect, currentPage, setCurrentPage } = useAuth()
+
+  return (
+    <header className="app-header">
+      <nav className="nav-links">
+        <button
+          className={currentPage === 'items' ? 'active' : ''}
+          onClick={() => setCurrentPage('items')}
+        >
+          Items
+        </button>
+        <button
+          className={currentPage === 'dashboard' ? 'active' : ''}
+          onClick={() => setCurrentPage('dashboard')}
+        >
+          Dashboard
+        </button>
+      </nav>
+      <button className="btn-disconnect" onClick={handleDisconnect}>
+        Disconnect
+      </button>
+    </header>
+  )
+}
+
+function ItemsPage({ token }: { token: string }) {
   const [fetchState, dispatch] = useReducer(fetchReducer, { status: 'idle' })
 
   useEffect(() => {
@@ -57,44 +147,9 @@ function App() {
       )
   }, [token])
 
-  function handleConnect(e: FormEvent) {
-    e.preventDefault()
-    const trimmed = draft.trim()
-    if (!trimmed) return
-    localStorage.setItem(STORAGE_KEY, trimmed)
-    setToken(trimmed)
-  }
-
-  function handleDisconnect() {
-    localStorage.removeItem(STORAGE_KEY)
-    setToken('')
-    setDraft('')
-  }
-
-  if (!token) {
-    return (
-      <form className="token-form" onSubmit={handleConnect}>
-        <h1>API Key</h1>
-        <p>Enter your API key to connect.</p>
-        <input
-          type="password"
-          placeholder="Token"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-        />
-        <button type="submit">Connect</button>
-      </form>
-    )
-  }
-
   return (
     <div>
-      <header className="app-header">
-        <h1>Items</h1>
-        <button className="btn-disconnect" onClick={handleDisconnect}>
-          Disconnect
-        </button>
-      </header>
+      <h1>Items</h1>
 
       {fetchState.status === 'loading' && <p>Loading...</p>}
       {fetchState.status === 'error' && <p>Error: {fetchState.message}</p>}
@@ -122,6 +177,34 @@ function App() {
         </table>
       )}
     </div>
+  )
+}
+
+function DashboardPage() {
+  const { token } = useAuth()
+  return <Dashboard token={token} />
+}
+
+function AppContent() {
+  const { token, currentPage } = useAuth()
+
+  if (!token) {
+    return null
+  }
+
+  if (currentPage === 'items') {
+    return <ItemsPage token={token} />
+  }
+
+  return <DashboardPage />
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppHeader />
+      <AppContent />
+    </AuthProvider>
   )
 }
 
